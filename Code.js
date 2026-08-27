@@ -23,6 +23,77 @@ function getRequiredScriptProperty_(key) {
 }
 
 
+function parseDriveVideo_(value) {
+  var rawValue = value === null || value === undefined ? '' : String(value).trim();
+  if (!rawValue || rawValue === 'Not Posted Yet') {
+    return {
+      rawUrl: rawValue,
+      fileId: '',
+      previewUrl: '',
+      directUrl: '',
+      openUrl: '',
+      resourceKey: '',
+      isValid: false,
+      status: rawValue === 'Not Posted Yet' ? 'not_posted' : 'missing'
+    };
+  }
+
+  var fileId = '';
+  var resourceKey = '';
+
+  var directMatch = rawValue.match(/\/file\/d\/([a-zA-Z0-9_-]{10,})/);
+  if (directMatch && directMatch[1]) {
+    fileId = directMatch[1];
+  }
+
+  if (!fileId) {
+    var idQueryMatch = rawValue.match(/[?&]id=([a-zA-Z0-9_-]{10,})/);
+    if (idQueryMatch && idQueryMatch[1]) {
+      fileId = idQueryMatch[1];
+    }
+  }
+
+  if (!fileId) {
+    var genericMatch = rawValue.match(/([a-zA-Z0-9_-]{25,})/);
+    if (genericMatch && genericMatch[1]) {
+      fileId = genericMatch[1];
+    }
+  }
+
+  var resourceKeyMatch = rawValue.match(/[?&]resourcekey=([^&#]+)/i);
+  if (resourceKeyMatch && resourceKeyMatch[1]) {
+    resourceKey = resourceKeyMatch[1];
+  }
+
+  if (!fileId) {
+    return {
+      rawUrl: rawValue,
+      fileId: '',
+      previewUrl: '',
+      directUrl: '',
+      openUrl: rawValue,
+      resourceKey: resourceKey,
+      isValid: false,
+      status: 'invalid'
+    };
+  }
+
+  var encodedResourceKey = resourceKey ? '&resourcekey=' + encodeURIComponent(resourceKey) : '';
+  var previewResourceKey = resourceKey ? '?resourcekey=' + encodeURIComponent(resourceKey) : '';
+
+  return {
+    rawUrl: rawValue,
+    fileId: fileId,
+    previewUrl: 'https://drive.google.com/file/d/' + fileId + '/preview' + previewResourceKey,
+    directUrl: 'https://drive.google.com/uc?export=download&id=' + fileId + encodedResourceKey,
+    openUrl: 'https://drive.google.com/file/d/' + fileId + '/view' + previewResourceKey,
+    resourceKey: resourceKey,
+    isValid: true,
+    status: 'ready'
+  };
+}
+
+
 // Global variables
 var ss = SpreadsheetApp.getActiveSpreadsheet();
 var cloudResponseSheet = ss.getSheetByName("Cloud Response");
@@ -71,7 +142,7 @@ function getUserData() {
       userData.isStudent = true;
       userData.displayName = studentData.displayName;
       userData.yearGroup = studentData.yearGroup;
-      userData.video = findVideoByEmail(thisUser );
+      userData.video = parseDriveVideo_(findVideoByEmail(thisUser ));
       userData.yearGroupVideos = getYearGroupVideos(userData.yearGroup);
     } else {
       // Check if user is a parent
@@ -79,11 +150,21 @@ function getUserData() {
       if (parentData) {
         cdata = cloudResponseSheet.getDataRange().getValues();
         userData.isParent = true;
+        userData.displayName = thisUser;
         userData.childrenVideos = getChildrenVideos(thisUser );
       }
     } 
   }
-  Logger.log(userData);
+  Logger.log({
+    email: userData.email,
+    isStudent: userData.isStudent,
+    isParent: userData.isParent,
+    isApprover: userData.isApprover,
+    yearGroup: userData.yearGroup,
+    yearGroupCount: userData.yearGroupVideos.length,
+    childrenCount: userData.childrenVideos.length,
+    allVideosCount: userData.allVideos.length
+  });
 
   return userData;
 }
@@ -109,9 +190,9 @@ function getAllVideos() {
     };
     var video = findVideoByEmail(studentEmail);
     if (video) {
-      studentData.video = video;
+      studentData.video = parseDriveVideo_(video);
     } else {
-      studentData.video = 'Not Posted Yet';
+      studentData.video = parseDriveVideo_('Not Posted Yet');
     }
     videos.push(studentData);
   }
@@ -165,7 +246,7 @@ function getYearGroupVideos(yearGroup) {
       if (video) {
         videos.push({
           displayName: studentsData[i][2],
-          video: video
+          video: parseDriveVideo_(video)
         });
       }
     }
@@ -185,7 +266,7 @@ function getChildrenVideos(parentEmail) {
       if (video) {
         videos.push({
           displayName: studentsData[i][2],
-          video: video
+          video: parseDriveVideo_(video)
         });
       }
     }
