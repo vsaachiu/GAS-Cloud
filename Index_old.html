@@ -15,9 +15,6 @@
     <div id="root"></div>
     
     <script type="text/babel">
-      // 1. Inject the OAuth token directly into the client context via script printing
-      const OAUTH_TOKEN = "<?!= ScriptApp.getOAuthToken() ?>";
-
       function App() {
         const [userData, setUserData] = React.useState(null);
         
@@ -71,13 +68,11 @@
           return {
             isValid: false,
             status: 'missing',
-            fileId: '',
+            previewUrl: '',
+            directUrl: '',
             openUrl: ''
           };
         }
-
-        let fileId = '';
-        let openUrl = '';
 
         if (typeof videoValue === 'string') {
           const raw = videoValue.trim();
@@ -86,100 +81,39 @@
             return {
               isValid: false,
               status: 'invalid',
-              fileId: '',
+              previewUrl: '',
+              directUrl: '',
               openUrl: raw
             };
           }
-          fileId = idMatch[0];
-          openUrl = `https://drive.google.com/file/d/${fileId}/view`;
-        } else if (typeof videoValue === 'object') {
-          fileId = videoValue.fileId || '';
-          openUrl = videoValue.openUrl || '';
-          
-          if (!fileId && openUrl) {
-            const idMatch = openUrl.match(/[-\w]{25,}/);
-            if (idMatch) fileId = idMatch[0];
-          }
-        }
 
-        if (!fileId) {
+          const fileId = idMatch[0];
           return {
-            isValid: false,
-            status: 'invalid',
-            fileId: '',
-            openUrl: openUrl
+            isValid: true,
+            status: 'ready',
+            previewUrl: `https://drive.google.com/file/d/${fileId}/preview`,
+            directUrl: `https://drive.google.com/uc?export=download&id=${fileId}`,
+            openUrl: `https://drive.google.com/file/d/${fileId}/view`
           };
         }
 
         return {
-          isValid: true,
-          status: videoValue.status || 'ready',
-          fileId: fileId,
-          openUrl: openUrl || `https://drive.google.com/file/d/${fileId}/view`
+          ...videoValue,
+          isValid: Boolean(videoValue.isValid),
+          status: videoValue.status || 'invalid',
+          previewUrl: videoValue.previewUrl || '',
+          directUrl: videoValue.directUrl || '',
+          openUrl: videoValue.openUrl || ''
         };
       }
 
-      // Method 1 Implementation for VideoPlayer Component
       function VideoPlayer({ video, title }) {
         const normalized = normalizeVideo(video);
-        const [videoSrc, setVideoSrc] = React.useState(null);
-        const [loading, setLoading] = React.useState(false);
-        const [error, setError] = React.useState(null);
+        const [mode, setMode] = React.useState(normalized.directUrl ? 'video' : normalized.previewUrl ? 'iframe' : 'link');
 
         React.useEffect(() => {
-          let isMounted = true;
-          let currentBlobUrl = null;
-
-          if (!normalized.isValid || !normalized.fileId) {
-            setVideoSrc(null);
-            return;
-          }
-
-          async function fetchVideoDirectly() {
-            setLoading(true);
-            setError(null);
-
-            try {
-              // Client-side fetch direct from Google Drive API with OAuth Token
-              const response = await fetch(
-                `https://www.googleapis.com/drive/v3/files/${normalized.fileId}?alt=media`,
-                {
-                  headers: {
-                    Authorization: `Bearer ${OAUTH_TOKEN}`,
-                  },
-                }
-              );
-
-              if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-              }
-
-              const blob = await response.blob();
-              currentBlobUrl = URL.createObjectURL(blob);
-
-              if (isMounted) {
-                setVideoSrc(currentBlobUrl);
-                setLoading(false);
-              }
-            } catch (err) {
-              if (isMounted) {
-                console.error("Failed to load video stream:", err);
-                setError("Unable to stream video natively.");
-                setLoading(false);
-              }
-            }
-          }
-
-          fetchVideoDirectly();
-
-          // Memory Cleanup
-          return () => {
-            isMounted = false;
-            if (currentBlobUrl) {
-              URL.revokeObjectURL(currentBlobUrl);
-            }
-          };
-        }, [normalized.fileId]);
+          setMode(normalized.directUrl ? 'video' : normalized.previewUrl ? 'iframe' : 'link');
+        }, [normalized.directUrl, normalized.previewUrl, normalized.openUrl]);
 
         if (!normalized.isValid || normalized.status === 'missing' || normalized.status === 'not_posted') {
           return <div className="status-card">No video posted yet.</div>;
@@ -199,26 +133,42 @@
         return (
           <div className="video-player">
             <div className="video-frame">
-              {loading ? (
-                <div className="status-card">Loading video stream...</div>
-              ) : error ? (
-                <div className="status-card">
-                  <p>{error}</p>
-                  <a className="inline-link" href={normalized.openUrl} target="_blank" rel="noopener noreferrer">Watch on Google Drive</a>
-                </div>
-              ) : videoSrc ? (
+              {mode === 'video' ? (
                 <video
+                  key={`video-${normalized.directUrl}`}
                   controls
                   preload="metadata"
-                  src={videoSrc}
-                  width="100%"
+                  src={normalized.directUrl}
+                  onError={() => {
+                    if (normalized.previewUrl) {
+                      setMode('iframe');
+                    } else {
+                      setMode('link');
+                    }
+                  }}
                 />
-              ) : null}
+              ) : mode === 'iframe' ? (
+                <iframe
+                  key={`iframe-${normalized.previewUrl}`}
+                  title={title}
+                  src={normalized.previewUrl}
+                  frameBorder="0"
+                  allow="autoplay; encrypted-media"
+                  allowFullScreen
+                />
+              ) : (
+                <div className="status-card">
+                  <p>Inline playback is unavailable in this browser context.</p>
+                </div>
+              )}
             </div>
 
             <div className="player-actions">
               {normalized.openUrl ? (
                 <a className="inline-link" href={normalized.openUrl} target="_blank" rel="noopener noreferrer">Open in Google Drive</a>
+              ) : null}
+              {mode !== 'iframe' && normalized.previewUrl ? (
+                <button type="button" className="ghost-btn" onClick={() => setMode('iframe')}>Try embedded preview</button>
               ) : null}
             </div>
           </div>
