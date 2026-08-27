@@ -6,5 +6,9 @@
   "webapp": {
     "executeAs": "USER_DEPLOYING",
     "access": "DOMAIN"
-  }
+  },
+  "oauthScopes": [
+    "https://www.googleapis.com/auth/drive.readonly",
+    "https://www.googleapis.com/auth/script.external_request"
+  ]
 }

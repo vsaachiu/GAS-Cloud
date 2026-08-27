@@ -8,44 +8,66 @@
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
     <script src="https://unpkg.com/react@17/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@17/umd/react-dom.production.min.js"></script>
-    <script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <style>
-      /* Layout tweaks for Roster and Carousel */
-      .roster-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-        gap: 10px;
-        margin-bottom: 24px;
-        background: #f8f9fa;
-        padding: 16px;
-        border-radius: 8px;
+      /* Layout Container */
+      .approver-layout {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
       }
-      .roster-item {
+
+      /* Mobile Controls (Default) */
+      .mobile-roster-select {
+        display: block;
+        margin-bottom: 16px;
+      }
+      .desktop-roster-sidebar {
+        display: none;
+      }
+
+      .roster-item-btn {
         display: flex;
         align-items: center;
-        gap: 8px;
-        font-size: 0.95rem;
+        justify-content: space-between;
+        width: 100%;
+        padding: 8px 12px;
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 6px;
+        text-align: left;
+        cursor: pointer;
+        transition: all 0.15s ease-in-out;
       }
+      .roster-item-btn:hover {
+        background: #edf2f7;
+      }
+      .roster-item-btn.is-active {
+        background: #ebf8ff;
+        border-color: #3182ce;
+        font-weight: 600;
+      }
+
       .carousel-container {
         display: flex;
         align-items: center;
-        gap: 16px;
-        margin-top: 16px;
+        gap: 12px;
       }
       .carousel-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        grid-template-columns: 1fr;
         gap: 16px;
         flex-grow: 1;
       }
+
       .carousel-btn {
         background: #007bff;
         color: white;
         border: none;
         border-radius: 50%;
-        width: 48px;
-        height: 48px;
-        font-size: 24px;
+        width: 44px;
+        height: 44px;
+        font-size: 20px;
         cursor: pointer;
         display: flex;
         align-items: center;
@@ -60,9 +82,41 @@
       }
       .pagination-indicator {
         text-align: center;
-        margin-top: 8px;
+        margin-top: 12px;
         font-weight: bold;
         color: #555;
+      }
+
+      /* Desktop / Laptop Layout Splits (>= 992px) */
+      @media (min-width: 992px) {
+        .approver-layout {
+          display: grid;
+          grid-template-columns: 1fr 3fr; /* 1/4 width sidebar, 3/4 width video panel */
+          gap: 24px;
+          align-items: start;
+        }
+
+        .mobile-roster-select {
+          display: none; /* Hide mobile dropdown */
+        }
+        .desktop-roster-sidebar {
+          display: block; /* Show sidebar list */
+          background: #f8f9fa;
+          padding: 16px;
+          border-radius: 8px;
+          max-height: 75vh;
+          overflow-y: auto;
+        }
+
+        .roster-list {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+        }
+
+        .carousel-grid {
+          grid-template-columns: repeat(2, 1fr); /* 2x2 grid for 4 videos */
+        }
       }
     </style>
   </head>
@@ -244,8 +298,9 @@
         const [selectedHomeroom, setSelectedHomeroom] = React.useState('');
         const [homerooms, setHomerooms] = React.useState([]);
         const [allHomeroomStudents, setAllHomeroomStudents] = React.useState([]);
-        const [pageSize, setPageSize] = React.useState(4); // Default to 4 (2 rows x 2 cols)
+        const [pageSize, setPageSize] = React.useState(4);
         const [currentPage, setCurrentPage] = React.useState(0);
+        const [selectedStudentIndex, setSelectedStudentIndex] = React.useState(0);
 
         React.useEffect(() => {
           const uniqueHomerooms = [...new Set(userData.allVideos.map(v => v.homeroom))];
@@ -256,19 +311,16 @@
         React.useEffect(() => {
           const filtered = userData.allVideos.filter(v => v.homeroom === selectedHomeroom);
           setAllHomeroomStudents(filtered);
-          setCurrentPage(0); // Reset to page 1 when changing homeroom
+          setCurrentPage(0);
+          setSelectedStudentIndex(0);
         }, [selectedHomeroom, userData]);
 
-        // Calculate dynamic page size based on window width (targeting ~2 rows)
         React.useEffect(() => {
           function updatePageSize() {
-            const width = window.innerWidth;
-            if (width < 600) {
-              setPageSize(2); // 1 column x 2 rows
-            } else if (width < 992) {
-              setPageSize(4); // 2 columns x 2 rows
+            if (window.innerWidth < 992) {
+              setPageSize(1); // Mobile: 1 video card at a time
             } else {
-              setPageSize(6); // 3 columns x 2 rows
+              setPageSize(4); // Desktop/Laptop: 4 video cards (2x2 grid)
             }
           }
 
@@ -277,18 +329,25 @@
           return () => window.removeEventListener('resize', updatePageSize);
         }, []);
 
-        // Filter out students who actually submitted valid videos for the video carousel
         const validVideoSubmissions = allHomeroomStudents.filter(s => normalizeVideo(s.video).isValid);
-        
         const totalPages = Math.ceil(validVideoSubmissions.length / pageSize) || 1;
         const visibleVideos = validVideoSubmissions.slice(
           currentPage * pageSize, 
           (currentPage + 1) * pageSize
         );
 
+        const handleSelectStudent = (studentName) => {
+          const indexInSubmissions = validVideoSubmissions.findIndex(s => s.displayName === studentName);
+          if (indexInSubmissions !== -1) {
+            const targetPage = Math.floor(indexInSubmissions / pageSize);
+            setCurrentPage(targetPage);
+            setSelectedStudentIndex(indexInSubmissions);
+          }
+        };
+
         return (
           <section className="panel">
-            <div className="filter-bar">
+            <div className="filter-bar" style={{ marginBottom: '20px' }}>
               <h2>Teacher View</h2>
               <label>
                 Homeroom
@@ -300,67 +359,100 @@
               </label>
             </div>
 
-            <!-- Student Roster Overview with Emoji Status -->
-            <div className="roster-section">
-              <h3>Homeroom Roster ({allHomeroomStudents.length})</h3>
-              <div className="roster-grid">
-                {allHomeroomStudents.map((student, idx) => {
-                  const hasVideo = normalizeVideo(student.video).isValid;
-                  return (
-                    <div key={idx} className="roster-item">
-                      <span>{hasVideo ? '✅' : '⚠️'}</span>
-                      <span style={{ fontWeight: hasVideo ? '600' : 'normal' }}>
-                        {student.displayName}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
+            {/* Mobile View Roster Selector (Visible < 992px) */}
+            <div className="mobile-roster-select">
+              <label style={{ width: '100%' }}>
+                Select Student:
+                <select 
+                  style={{ width: '100%', marginTop: '4px' }}
+                  onChange={(e) => handleSelectStudent(e.target.value)}
+                >
+                  {allHomeroomStudents.map((s, idx) => {
+                    const hasVideo = normalizeVideo(s.video).isValid;
+                    return (
+                      <option key={idx} value={s.displayName}>
+                        {hasVideo ? '✅' : '⚠️'} {s.displayName}
+                      </option>
+                    );
+                  })}
+                </select>
+              </label>
             </div>
 
-            <!-- Paginated Video Carousel -->
-            <div className="carousel-section">
-              <h3>Video Gallery ({validVideoSubmissions.length} Submitted)</h3>
+            {/* Split Screen Layout Container */}
+            <div className="approver-layout">
               
-              {validVideoSubmissions.length === 0 ? (
-                <div className="status-card">No videos submitted for this homeroom yet.</div>
-              ) : (
-                <div>
-                  <div className="carousel-container">
-                    <button 
-                      className="carousel-btn" 
-                      onClick={() => setCurrentPage(p => Math.max(0, p - 1))}
-                      disabled={currentPage === 0}
-                      aria-label="Previous videos"
-                    >
-                      &#10094;
-                    </button>
-
-                    <div className="carousel-grid">
-                      {visibleVideos.map((video, index) => (
-                        <article key={`${currentPage}-${index}`} className="video-card">
-                          <h3>{video.displayName}</h3>
-                          <p className="card-meta">{video.homeroom}</p>
-                          <VideoPlayer video={video.video} title={`${video.displayName} video`} />
-                        </article>
-                      ))}
-                    </div>
-
-                    <button 
-                      className="carousel-btn" 
-                      onClick={() => setCurrentPage(p => Math.min(totalPages - 1, p + 1))}
-                      disabled={currentPage >= totalPages - 1}
-                      aria-label="Next videos"
-                    >
-                      &#10095;
-                    </button>
-                  </div>
-                  
-                  <div className="pagination-indicator">
-                    Page {currentPage + 1} of {totalPages}
-                  </div>
+              {/* Desktop Left Sidebar (1/4 Width) */}
+              <div className="desktop-roster-sidebar">
+                <h4 style={{ fontSize: '1.1rem', marginBottom: '12px' }}>
+                  Roster ({allHomeroomStudents.length})
+                </h4>
+                <div className="roster-list">
+                  {allHomeroomStudents.map((student, idx) => {
+                    const hasVideo = normalizeVideo(student.video).isValid;
+                    const isSelected = validVideoSubmissions[selectedStudentIndex]?.displayName === student.displayName;
+                    
+                    return (
+                      <button
+                        key={idx}
+                        type="button"
+                        className={`roster-item-btn ${isSelected ? 'is-active' : ''}`}
+                        onClick={() => handleSelectStudent(student.displayName)}
+                        disabled={!hasVideo}
+                      >
+                        <span>{student.displayName}</span>
+                        <span>{hasVideo ? '✅' : '⚠️'}</span>
+                      </button>
+                    );
+                  })}
                 </div>
-              )}
+              </div>
+
+              {/* Main Video Viewing Gallery (3/4 Width) */}
+              <div className="carousel-section">
+                <h3>Submitted Videos ({validVideoSubmissions.length})</h3>
+                
+                {validVideoSubmissions.length === 0 ? (
+                  <div className="status-card">No videos submitted for this homeroom yet.</div>
+                ) : (
+                  <div>
+                    <div className="carousel-container">
+                      <button 
+                        className="carousel-btn" 
+                        onClick={() => setCurrentPage(p => Math.max(0, p - 1))}
+                        disabled={currentPage === 0}
+                        aria-label="Previous videos"
+                      >
+                        &#10094;
+                      </button>
+
+                      <div className="carousel-grid">
+                        {visibleVideos.map((video, index) => (
+                          <article key={`${currentPage}-${index}`} className="video-card">
+                            <h3>{video.displayName}</h3>
+                            <p className="card-meta">{video.homeroom}</p>
+                            <VideoPlayer video={video.video} title={`${video.displayName} video`} />
+                          </article>
+                        ))}
+                      </div>
+
+                      <button 
+                        className="carousel-btn" 
+                        onClick={() => setCurrentPage(p => Math.min(totalPages - 1, p + 1))}
+                        disabled={currentPage >= totalPages - 1}
+                        aria-label="Next videos"
+                      >
+                        &#10095;
+                      </button>
+                    </div>
+                    
+                    <div className="pagination-indicator">
+                      Page {currentPage + 1} of {totalPages}
+                    </div>
+                  </div>
+                )}
+              </div>
+
             </div>
           </section>
         );
@@ -385,7 +477,7 @@
               </div>
             ) : (
               <div className="video-grid">
-                {userData.yearGroupVideos?.map((v, i) => (
+                {userData.yearGroupVideos && userData.yearGroupVideos.map((v, i) => (
                   <article key={i} className="video-card">
                     <h3>{v.displayName}</h3>
                     <VideoPlayer video={v.video} title={`${v.displayName} video`} />
@@ -402,7 +494,7 @@
           <section className="panel">
             <h2>Videos From Your Family</h2>
             <div className="video-grid">
-              {userData.childrenVideos?.map((v, i) => (
+              {userData.childrenVideos && userData.childrenVideos.map((v, i) => (
                 <article key={i} className="video-card">
                   <h3>{v.displayName}</h3>
                   <VideoPlayer video={v.video} title={`${v.displayName} video`} />
