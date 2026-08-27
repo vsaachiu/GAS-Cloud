@@ -1,0 +1,42 @@
+<style>
+.year-group-videos {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+} 
+
+.video-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+}
+
+.video-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  max-width: 300px; /* Add this line to limit the width of each video item */
+}
+
+.video-item iframe {
+  width: 100%; /* Make the iframe take up the full width of the video item */
+  height: 200px; /* Set a fixed height for the iframe */
+}
+
+/* Responsive design for smaller screens */
+@media (max-width: 768px) {
+  .video-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+div.mb-4 h3{
+  font-size: smaller;
+}
+
+@media (max-width: 480px) {
+  .video-grid {
+    grid-template-columns: repeat(1, 1fr);
+  }
+}
+</style>

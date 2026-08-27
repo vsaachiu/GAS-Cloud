@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <script src="https://unpkg.com/react@17/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@17/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
+  </head>
+  <?!= include("css"); ?>
+  <body>
+    <div id="root"></div>
+    
+    <script type="text/babel">
+      // React components will go here
+      
+      function App() {
+        const [userData, setUserData] = React.useState(null);
+        
+        React.useEffect(() => {
+          google.script.run
+            .withSuccessHandler(setUserData)
+            .getUserData();
+        }, []);
+        
+        if (!userData) {
+          return <div>Loading...</div>;
+        }
+        
+        if (!userData.isStudent && !userData.isParent && !userData.isApprover) {
+          return (
+            <div className="container mt-4 text-center">
+              <h1>Cloud Video Viewer</h1>
+              <p>For Y6-9 students and parents. Log in with your school account.</p>
+            </div>
+          );
+        }
+        
+        return (
+          <div className="container mt-4">
+            {userData.isApprover ? (
+              <ApproverView userData={userData} />
+            ) : userData.isStudent ? (
+              <StudentView userData={userData} />
+            ) : (
+              <ParentView userData={userData} />
+            )}
+          </div>
+        );
+      }
+      function convertToEmbedUrl(driveUrl) {
+        const fileId = driveUrl.match(/[-\w]{25,}/);
+        if (fileId) {
+          return `https://drive.google.com/file/d/${fileId[0]}/preview`;
+        }
+        return driveUrl;
+      }
+
+      function StudentView({ userData }) {
+        const [activeTab, setActiveTab] = React.useState('myVideo');
+
+        const handleVideoSubmission = () => {
+          if (!userData.videoSubmissionFormUrl) {
+            window.alert('The video submission form is not configured.');
+            return;
+          }
+
+          window.open(userData.videoSubmissionFormUrl, '_blank');
+        };
+
+        return (
+          <div>
+            <h1>{userData.displayName}</h1>
+            <ul className="nav nav-tabs mb-3">
+              <li className="nav-item">
+                <a className={`nav-link ${activeTab === 'myVideo' ? 'active' : ''}`} onClick={() => setActiveTab('myVideo')}>My Video</a>
+              </li>
+              <li className="nav-item">
+                <a className={`nav-link ${activeTab === 'yearGroup' ? 'active' : ''}`} onClick={() => setActiveTab('yearGroup')}>Year Group</a>
+              </li>
+            </ul>
+            {activeTab === 'myVideo' ? (
+              <div>
+                {userData.video === '' ? (
+                  <div>
+                    <p>No video submitted yet.</p>
+                    {userData.videoSubmissionFormUrl ? (
+                      <button className="btn btn-primary" onClick={handleVideoSubmission}>Submit your video now</button>
+                    ) : (
+                      <p className="text-danger">The submission form has not been configured yet.</p>
+                    )}
+                  </div>
+                ) : (
+                  <iframe src={convertToEmbedUrl(userData.video)} width="640" height="360" frameBorder="0" allowFullScreen></iframe>
+                )}
+              </div>
+            ) : (
+              <div className="year-group-videos">
+                <h2>Year Group Videos</h2>
+                <div className="video-grid">
+                  {userData.yearGroupVideos.map((video, index) => (
+                    <div key={index} className="video-item">
+                      <h3>{video.displayName}</h3>
+                      <iframe src={convertToEmbedUrl(video.video)} width="640" height="360" frameBorder="0" allowFullScreen></iframe>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      }
+
+      function ParentView({ userData }) {
+        return (
+          <div>
+            <h1>Videos From Your Family</h1>
+            {userData.childrenVideos && userData.childrenVideos.length > 0 ? (
+              userData.childrenVideos.map((video, index) => (
+                <div key={index} className="mb-4">
+                  <h3>{video.displayName}</h3>
+                  <iframe src={convertToEmbedUrl(video.video)} width="640" height="360" frameBorder="0" allowFullScreen></iframe>
+                </div>
+              ))
+            ) : (
+              <p>When {userData.displayName} uploads a video, the video will show here.</p>
+            )}
+          </div>
+        );
+      } 
+
+      function ApproverView({ userData }) {
+        const [selectedHomeroom, setSelectedHomeroom] = React.useState('');
+        const [homerooms, setHomerooms] = React.useState([]);
+        const [videos, setVideos] = React.useState([]);
+
+        React.useEffect(() => {
+          const uniqueHomerooms = [...new Set(userData.allVideos.map(video => video.homeroom))];
+          setHomerooms(uniqueHomerooms);
+          setSelectedHomeroom(uniqueHomerooms[0]);
+        }, [userData]);
+
+        React.useEffect(() => {
+          const filteredVideos = userData.allVideos.filter(video => video.homeroom === selectedHomeroom);
+          setVideos(filteredVideos);
+        }, [selectedHomeroom, userData]);
+
+        const handleHomeroomChange = (event) => {
+          setSelectedHomeroom(event.target.value);
+        };
+
+        return (
+          <div>
+            <h1>Teacher View</h1>
+            <h2>Videos by Homeroom</h2>
+            <select value={selectedHomeroom} onChange={handleHomeroomChange}>
+              {homerooms.map((homeroom, index) => (
+                <option key={index} value={homeroom}>{homeroom}</option>
+              ))}
+            </select>
+            <div className="row">
+              {videos.map((video, index) => (
+                <div key={index} className="col-md-4">
+                  <h3>{video.displayName}</h3>
+                  {video.video === 'Not Posted Yet' ? (
+                    <p>{video.video}</p>
+                  ) : (
+                    <iframe
+                      title={video.displayName}
+                      src={convertToEmbedUrl(video.video)}
+                      frameBorder="0"
+                      width="100%"
+                      height="200"
+                    />
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      }
+      ReactDOM.render(<App />, document.getElementById('root'));
+    </script>
+  </body>
+</html>
