@@ -23,6 +23,11 @@ function getRequiredScriptProperty_(key) {
 }
 
 
+function normalizeEmail_(email) {
+  return email === null || email === undefined ? '' : String(email).trim().toLowerCase();
+}
+
+
 function parseDriveVideo_(value) {
   var rawValue = value === null || value === undefined ? '' : String(value).trim();
   if (!rawValue || rawValue === 'Not Posted Yet') {
@@ -122,7 +127,6 @@ function getUserData() {
     yearGroup: '',
     video: '',
     videoSubmissionFormUrl: getScriptProperty_(SCRIPT_PROPERTY_KEYS.videoSubmissionFormUrl),
-    yearGroupVideos: [],
     childrenVideos: [],
     allVideos: []
   };
@@ -143,7 +147,6 @@ function getUserData() {
       userData.displayName = studentData.displayName;
       userData.yearGroup = studentData.yearGroup;
       userData.video = parseDriveVideo_(findVideoByEmail(thisUser ));
-      userData.yearGroupVideos = getYearGroupVideos(userData.yearGroup);
     } else {
       // Check if user is a parent
       var parentData = findParentByEmail(thisUser );
@@ -161,7 +164,6 @@ function getUserData() {
     isParent: userData.isParent,
     isApprover: userData.isApprover,
     yearGroup: userData.yearGroup,
-    yearGroupCount: userData.yearGroupVideos.length,
     childrenCount: userData.childrenVideos.length,
     allVideosCount: userData.allVideos.length
   });
@@ -170,9 +172,10 @@ function getUserData() {
 }
 
 function isApprover(email) {
+  var normalizedEmail = normalizeEmail_(email);
   var data = approverSheet.getDataRange().getValues();
   for (var i = 1; i < data.length; i++) {
-    if (data[i][0] === email) {
+    if (normalizeEmail_(data[i][0]) === normalizedEmail) {
       return true;
     }
   }
@@ -200,10 +203,11 @@ function getAllVideos() {
 }
 
 function findStudentByEmail(email) {
+  var normalizedEmail = normalizeEmail_(email);
   //var data = studentsSheet.getDataRange().getValues();
   var data = sdata;
   for (var i = 1; i < data.length; i++) {
-    if (data[i][10] === email) {
+    if (normalizeEmail_(data[i][10]) === normalizedEmail) {
       return {
         displayName: data[i][2],
         yearGroup: data[i][16]
@@ -214,10 +218,11 @@ function findStudentByEmail(email) {
 }
 
 function findParentByEmail(email) {
+  var normalizedEmail = normalizeEmail_(email);
   //var data = studentsSheet.getDataRange().getValues();
   var data = sdata;
   for (var i = 1; i < data.length; i++) {
-    if (data[i][9] === email) {
+    if (normalizeEmail_(data[i][9]) === normalizedEmail) {
       return true;
     }
   }
@@ -225,42 +230,24 @@ function findParentByEmail(email) {
 }
 
 function findVideoByEmail(email) {
+  var normalizedEmail = normalizeEmail_(email);
   //var data = cloudResponseSheet.getDataRange().getValues();
   var data = cdata; 
   for (var i = 1; i < data.length; i++) {
-    if (data[i][1] === email) {
+    if (normalizeEmail_(data[i][1]) === normalizedEmail) {
       return data[i][2];
     }
   }
   return '';
 } 
 
-function getYearGroupVideos(yearGroup) {
-  var videos = [];
-  var studentsData = sdata;
-  var responsesData = cdata;
-  for (var i = 1; i < studentsData.length; i++) {
-    if (studentsData[i][16] === yearGroup) {
-      var studentEmail = studentsData[i][10];
-      var video = findVideoByEmail(studentEmail);
-      if (video) {
-        videos.push({
-          displayName: studentsData[i][2],
-          video: parseDriveVideo_(video)
-        });
-      }
-    }
-  }
-  return videos;
-}
-
 function getChildrenVideos(parentEmail) {
+  var normalizedParentEmail = normalizeEmail_(parentEmail);
   var videos = [];
   var studentsData = sdata;
-  var responsesData = cdata;
 
   for (var i = 1; i < studentsData.length; i++) {
-    if (studentsData[i][9] === parentEmail) {
+    if (normalizeEmail_(studentsData[i][9]) === normalizedParentEmail) {
       var studentEmail = studentsData[i][10];
       var video = findVideoByEmail(studentEmail);
       if (video) {

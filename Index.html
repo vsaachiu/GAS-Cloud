@@ -459,32 +459,14 @@
       }
 
       function StudentView({ userData }) {
-        const [activeTab, setActiveTab] = React.useState('myVideo');
-
         return (
           <section className="panel">
-            <div className="tabs">
-              <button className={`tab-btn ${activeTab === 'myVideo' ? 'is-active' : ''}`} onClick={() => setActiveTab('myVideo')}>My Video</button>
-              <button className={`tab-btn ${activeTab === 'yearGroup' ? 'is-active' : ''}`} onClick={() => setActiveTab('yearGroup')}>Year Group</button>
+            <div className="card-stack">
+              <article className="video-card">
+                <h2>My Submission</h2>
+                <VideoPlayer video={userData.video} title={`${userData.displayName} video`} />
+              </article>
             </div>
-
-            {activeTab === 'myVideo' ? (
-              <div className="card-stack">
-                <article className="video-card">
-                  <h2>My Submission</h2>
-                  <VideoPlayer video={userData.video} title={`${userData.displayName} video`} />
-                </article>
-              </div>
-            ) : (
-              <div className="video-grid">
-                {userData.yearGroupVideos && userData.yearGroupVideos.map((v, i) => (
-                  <article key={i} className="video-card">
-                    <h3>{v.displayName}</h3>
-                    <VideoPlayer video={v.video} title={`${v.displayName} video`} />
-                  </article>
-                ))}
-              </div>
-            )}
           </section>
         );
       }
@@ -493,14 +475,18 @@
         return (
           <section className="panel">
             <h2>Videos From Your Family</h2>
-            <div className="video-grid">
-              {userData.childrenVideos && userData.childrenVideos.map((v, i) => (
-                <article key={i} className="video-card">
-                  <h3>{v.displayName}</h3>
-                  <VideoPlayer video={v.video} title={`${v.displayName} video`} />
-                </article>
-              ))}
-            </div>
+            {userData.childrenVideos && userData.childrenVideos.length > 0 ? (
+              <div className="video-grid">
+                {userData.childrenVideos.map((v, i) => (
+                  <article key={i} className="video-card">
+                    <h3>{v.displayName}</h3>
+                    <VideoPlayer video={v.video} title={`${v.displayName} video`} />
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <div className="status-card">When your child uploads a video, it will appear here.</div>
+            )}
           </section>
         );
       }
