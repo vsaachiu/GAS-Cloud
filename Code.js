@@ -349,8 +349,8 @@ function moveFileToDeletionFolder(fileUrl) {
 }
 
 function batchMoveFilesFromSourceToDestination() {
-  var sourceFolderId = 'SOURCE_FOLDER_ID';
-  var destinationFolderId = 'DESTINATION_FOLDER_ID';
+  var sourceFolderId = '18AtkdUm8_-Nzd66t-L-OPIvOPDpSoLVMfTi_HlAQatP4SXiZqybywAoyiZqHPm_bzBRYh4_o';
+  var destinationFolderId = '1adpx8QqNBQrpyxxM7fcZHT-rTwpGB2TZ';
 
   var sourceFolder = DriveApp.getFolderById(sourceFolderId);
   var destinationFolder = DriveApp.getFolderById(destinationFolderId);
