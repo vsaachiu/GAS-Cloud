@@ -348,6 +348,41 @@ function moveFileToDeletionFolder(fileUrl) {
   }
 }
 
+function batchMoveFilesFromSourceToDestination() {
+  var sourceFolderId = '18AtkdUm8_-Nzd66t-L-OPIvOPDpSoLVMfTi_HlAQatP4SXiZqybywAoyiZqHPm_bzBRYh4_o';
+  var destinationFolderId = '1adpx8QqNBQrpyxxM7fcZHT-rTwpGB2TZ';
+
+  var sourceFolder = DriveApp.getFolderById(sourceFolderId);
+  var destinationFolder = DriveApp.getFolderById(destinationFolderId);
+
+  var files = [];
+  var fileIterator = sourceFolder.getFiles();
+
+  while (fileIterator.hasNext()) {
+    files.push(fileIterator.next());
+  }
+
+  var movedCount = 0;
+  for (var i = 0; i < files.length; i++) {
+    try {
+      files[i].moveTo(destinationFolder);
+      movedCount++;
+      Logger.log('Moved file: ' + files[i].getName());
+    } catch (e) {
+      Logger.log('Error moving file: ' + files[i].getName() + ' - ' + e.toString());
+    }
+  }
+
+  Logger.log('Moved ' + movedCount + ' file(s) from ' + sourceFolder.getName() + ' to ' + destinationFolder.getName());
+
+  return {
+    sourceFolderName: sourceFolder.getName(),
+    destinationFolderName: destinationFolder.getName(),
+    filesFound: files.length,
+    movedCount: movedCount
+  };
+}
+
 function onFormSubmit(e) {
   // Trigger the duplicate processing function when a form is submitted
   processDuplicateResponses();
